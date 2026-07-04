@@ -56,9 +56,10 @@ tok.save("tokenizer.json")
 - [x] **Autodiff engine**: broadcasting-aware Tensor with backward for add/mul/matmul/exp/log/tanh/relu/pow/sum/mean/reshape/transpose/indexing, verified by numerical gradient checks
 - [x] **Composable functional layer**: softmax, log-softmax, GELU, cross-entropy built from primitives with stable log-sum-exp shifts
 - [x] **Byte-level BPE tokenizer**: trainable, deterministic, lossless UTF-8 round-trip, JSON save/load
-- [ ] **Transformer**: embeddings, multi-head causal attention, GELU MLP blocks, layer norm, weight tying
-- [ ] **Training loop**: AdamW, grad clipping, warmup + cosine schedule, checkpointing, resumable
-- [ ] **Generation + eval**: temperature/top-k sampling, perplexity eval, trained checkpoint with loss curves
+- [x] **Transformer**: embeddings, multi-head causal attention, GELU MLP blocks, pre-norm residuals, weight tying, causality verified by test
+- [x] **Training loop**: AdamW (decoupled decay, GPT-2 style param groups), grad clipping, warmup + cosine schedule, resumable checkpoints with optimizer state
+- [x] **Sampling**: autoregressive generation with temperature and top-k
+- [ ] **Trained model**: full Shakespeare run with loss curves, perplexity eval, committed checkpoint
 - [ ] **CLI + docs**: `loom train` / `loom generate`, architecture writeup
 
 ## Design notes
@@ -75,8 +76,33 @@ loom/
   functional.py   # softmax, gelu, cross_entropy composed from primitives
   gradcheck.py    # central-difference numerical gradient checking
   tokenizer.py    # byte-level BPE: train / encode / decode / save / load
-tests/            # gradient checks for every op + tokenizer suite
+  nn.py           # Module base + Linear, Embedding, LayerNorm, Dropout
+  model.py        # GPTConfig, causal self-attention, transformer blocks, GPT
+  optim.py        # AdamW, gradient clipping, warmup + cosine LR
+  train.py        # Trainer: batching, eval, resumable checkpoints
+  rng.py          # one seeded generator for init, dropout, batching, sampling
+tests/            # gradient checks, causality proof, overfit sanity check
 data/             # public-domain training corpus
+```
+
+Train a tiny GPT end to end (this is real code, not pseudocode):
+
+```python
+import numpy as np
+from loom import GPT, GPTConfig, BPETokenizer, set_seed
+from loom.train import Trainer, TrainConfig
+
+set_seed(42)
+text = open("data/shakespeare.txt").read()
+tok = BPETokenizer.train(text, vocab_size=512)
+ids = np.array(tok.encode(text))
+
+model = GPT(GPTConfig(vocab_size=tok.vocab_size, block_size=64, n_layer=2, n_head=4, n_embd=96))
+Trainer(model=model, token_ids=ids, config=TrainConfig(max_steps=500)).train()
+
+model.eval()
+out = model.generate(np.array([tok.encode("ROMEO:")]), max_new_tokens=100, top_k=40)
+print(tok.decode(list(out[0])))
 ```
 
 ## License
