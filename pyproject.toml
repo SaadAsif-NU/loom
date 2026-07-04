@@ -52,6 +52,9 @@ packages = ["loom"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# Make the in-repo package importable no matter how pytest is invoked
+# (editable installs can be flaky when the checkout path contains spaces).
+pythonpath = ["."]
 
 [tool.ruff]
 line-length = 100
