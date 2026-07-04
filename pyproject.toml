@@ -1,0 +1,71 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "loom-lm"
+version = "0.1.0"
+description = "A small language model woven from scratch: reverse-mode autodiff, byte-level BPE, and a GPT-style transformer in pure Python + NumPy. No PyTorch, no TensorFlow."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Saad Asif", email = "saadasif7a@gmail.com" }]
+keywords = [
+    "autodiff",
+    "autograd",
+    "transformer",
+    "gpt",
+    "bpe",
+    "tokenizer",
+    "language-model",
+    "numpy",
+    "deep-learning-from-scratch",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = ["numpy>=1.26"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+    "ruff>=0.3",
+    "mypy>=1.9",
+]
+
+[project.urls]
+Homepage = "https://github.com/SaadAsif-NU/loom"
+Repository = "https://github.com/SaadAsif-NU/loom"
+
+[tool.hatch.build.targets.wheel]
+packages = ["loom"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "C4"]
+ignore = ["E501"]
+
+[tool.mypy]
+# Target 3.12 so mypy parses modern typed-stdlib/stub syntax; runtime support
+# down to 3.10 is enforced by the test matrix.
+python_version = "3.12"
+warn_unused_ignores = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+files = ["loom"]
