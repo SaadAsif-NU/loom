@@ -24,6 +24,9 @@ from loom.rng import get_rng
 @dataclass(frozen=True)
 class TrainConfig:
     max_steps: int = 2000
+    # LR-schedule horizon; defaults to max_steps. Set it higher than
+    # max_steps to train in resumable phases that share one cosine curve.
+    schedule_steps: int | None = None
     batch_size: int = 32
     # Micro-batches summed into one optimizer step: effective batch =
     # batch_size * grad_accum_steps without the memory of a bigger batch.
@@ -114,7 +117,7 @@ class Trainer:
                 max_lr=self.config.lr,
                 min_lr=self.config.min_lr,
                 warmup_steps=self.config.warmup_steps,
-                total_steps=self.config.max_steps,
+                total_steps=self.config.schedule_steps or self.config.max_steps,
             )
             self.optimizer.lr = lr
 

@@ -80,6 +80,19 @@ def test_clip_grad_norm_empty_is_zero() -> None:
     assert clip_grad_norm([Tensor(np.array([1.0]), requires_grad=True)], 1.0) == 0.0
 
 
+def test_schedule_steps_decouples_horizon_from_stop_point() -> None:
+    from loom.model import GPT, GPTConfig
+    from loom.train import TrainConfig, Trainer
+
+    model = GPT(GPTConfig(vocab_size=32, block_size=8, n_layer=1, n_head=2, n_embd=16))
+    config = TrainConfig(max_steps=3, schedule_steps=1000, warmup_steps=100, lr=1.0, log_interval=1)
+    trainer = Trainer(model=model, token_ids=np.tile(np.arange(32), 40), config=config)
+    history = trainer.train()
+    # Still warming up against the 1000-step horizon: lr rises linearly and
+    # stays far below max, instead of decaying within the 3-step phase.
+    assert [h["lr"] for h in history] == pytest.approx([0.01, 0.02, 0.03])
+
+
 def test_cosine_lr_shape() -> None:
     kwargs = {"max_lr": 1.0, "min_lr": 0.1, "warmup_steps": 10, "total_steps": 100}
     # Linear warmup from max_lr/warmup to max_lr.

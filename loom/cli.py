@@ -63,6 +63,7 @@ def _cmd_train(args: argparse.Namespace) -> int:
 
     train_config = TrainConfig(
         max_steps=args.steps,
+        schedule_steps=args.schedule_steps,
         batch_size=args.batch_size,
         grad_accum_steps=args.grad_accum,
         lr=args.lr,
@@ -179,6 +180,12 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument("--n-embd", type=int, default=128)
     train.add_argument("--dropout", type=float, default=0.1)
     train.add_argument("--steps", type=int, default=2000)
+    train.add_argument(
+        "--schedule-steps",
+        type=int,
+        default=None,
+        help="LR schedule horizon if training in phases (defaults to --steps)",
+    )
     train.add_argument("--batch-size", type=int, default=32)
     train.add_argument("--grad-accum", type=int, default=1, help="micro-batches per step")
     train.add_argument("--lr", type=float, default=1e-3)
