@@ -13,8 +13,8 @@ Modern ML work happens on top of frameworks that hide the interesting parts: how
 - **`loom.tensor`**: a define-by-run reverse-mode autodiff engine. Tensors track their computation graph; `backward()` topologically sorts it and propagates gradients, with full NumPy broadcasting handled correctly on the way back.
 - **`loom.functional`**: softmax, GELU, layer norm, and cross-entropy built by *composing* the primitive ops, so their gradients come from the engine rather than hand-derived special cases. Numerical stability (log-sum-exp shifts) is handled with detached constants.
 - **`loom.tokenizer`**: a byte-level BPE tokenizer trained from raw text, GPT-2-style pre-tokenization, deterministic merges, JSON save/load, and lossless round-tripping of any UTF-8 input.
-- **`loom.nn` + `loom.model`**: linear/embedding/layer-norm modules and a GPT-style decoder-only transformer with multi-head causal self-attention.
-- **`loom.train`**: AdamW, gradient clipping, warmup + cosine LR schedule, batching, checkpointing.
+- **`loom.nn` + `loom.model`**: linear/embedding/layer-norm modules and a GPT-style decoder-only transformer with multi-head causal self-attention, **KV-cached decoding** (O(T) per generated token, proven equivalent to the uncached path by test), and temperature / top-k / nucleus sampling.
+- **`loom.train`**: AdamW, gradient clipping, warmup + cosine LR schedule, gradient accumulation, batching, resumable checkpointing.
 
 Everything is verified: each primitive op and every composed function is checked against central-difference numerical gradients in the test suite.
 
@@ -58,9 +58,33 @@ tok.save("tokenizer.json")
 - [x] **Byte-level BPE tokenizer**: trainable, deterministic, lossless UTF-8 round-trip, JSON save/load
 - [x] **Transformer**: embeddings, multi-head causal attention, GELU MLP blocks, pre-norm residuals, weight tying, causality verified by test
 - [x] **Training loop**: AdamW (decoupled decay, GPT-2 style param groups), grad clipping, warmup + cosine schedule, resumable checkpoints with optimizer state
-- [x] **Sampling**: autoregressive generation with temperature and top-k
+- [x] **Sampling**: temperature, top-k, and nucleus (top-p) sampling with KV-cached decoding, equivalence-tested against the uncached path
+- [x] **CLI + docs**: `loom train` / `loom generate` / `loom eval`, architecture writeup, runnable examples
 - [ ] **Trained model**: full Shakespeare run with loss curves, perplexity eval, committed checkpoint
-- [ ] **CLI + docs**: `loom train` / `loom generate`, architecture writeup
+
+## CLI
+
+The whole workflow is three commands (also available as `python -m loom`):
+
+```bash
+# raw text in -> tokenizer + model + loss history out
+loom train --data data/shakespeare.txt --out checkpoints/shakespeare \
+    --vocab-size 512 --block-size 128 --n-layer 4 --n-head 4 --n-embd 128 \
+    --steps 2000 --batch-size 32 --lr 1e-3
+
+# sample from the trained model (temperature / top-k / top-p)
+loom generate --checkpoint checkpoints/shakespeare/model.npz \
+    --tokenizer checkpoints/shakespeare/tokenizer.json \
+    --prompt "ROMEO:" --tokens 200 --temperature 0.8 --top-k 40
+
+# held-out perplexity
+loom eval --checkpoint checkpoints/shakespeare/model.npz \
+    --tokenizer checkpoints/shakespeare/tokenizer.json \
+    --data data/shakespeare.txt
+```
+
+Interrupted runs restart exactly where they left off (`--resume` reloads
+the weights, the Adam moments, and the step counter from `checkpoint.npz`).
 
 ## Design notes
 
@@ -79,9 +103,12 @@ loom/
   nn.py           # Module base + Linear, Embedding, LayerNorm, Dropout
   model.py        # GPTConfig, causal self-attention, transformer blocks, GPT
   optim.py        # AdamW, gradient clipping, warmup + cosine LR
-  train.py        # Trainer: batching, eval, resumable checkpoints
+  train.py        # Trainer: batching, grad accumulation, resumable checkpoints
+  evaluate.py     # held-out perplexity
+  cli.py          # loom train / generate / eval
   rng.py          # one seeded generator for init, dropout, batching, sampling
-tests/            # gradient checks, causality proof, overfit sanity check
+tests/            # gradient checks, causality proof, cache equivalence, overfit gate
+scripts/          # dependency-free SVG plotters + generation benchmark
 data/             # public-domain training corpus
 ```
 
