@@ -25,6 +25,9 @@ from loom.rng import get_rng
 class TrainConfig:
     max_steps: int = 2000
     batch_size: int = 32
+    # Micro-batches summed into one optimizer step: effective batch =
+    # batch_size * grad_accum_steps without the memory of a bigger batch.
+    grad_accum_steps: int = 1
     lr: float = 3e-4
     min_lr: float = 3e-5
     warmup_steps: int = 100
@@ -49,6 +52,8 @@ class Trainer:
         min_needed = self.model.config.block_size + 2
         if ids.ndim != 1 or ids.size < min_needed:
             raise ValueError(f"token_ids must be a flat array of at least {min_needed} tokens")
+        if self.config.grad_accum_steps < 1:
+            raise ValueError("grad_accum_steps must be at least 1")
         split = int(ids.size * (1.0 - self.config.val_fraction))
         self.train_ids = ids[:split]
         self.val_ids = ids[split:]
@@ -113,11 +118,18 @@ class Trainer:
             )
             self.optimizer.lr = lr
 
-            x, y = self.get_batch("train")
-            _, loss = self.model.forward(x, targets=y)
-            assert loss is not None
+            # Micro-batches accumulate gradients (each scaled by 1/N, so the
+            # sum equals the mean-loss gradient of the combined batch), then
+            # clip and step once.
+            accum = self.config.grad_accum_steps
             self.optimizer.zero_grad()
-            loss.backward()
+            step_loss = 0.0
+            for _ in range(accum):
+                x, y = self.get_batch("train")
+                _, loss = self.model.forward(x, targets=y)
+                assert loss is not None
+                (loss * (1.0 / accum)).backward()
+                step_loss += loss.item() / accum
             grad_norm = clip_grad_norm(self.model.parameters(), self.config.grad_clip)
             self.optimizer.step()
             self.step += 1
@@ -126,7 +138,7 @@ class Trainer:
                 record: dict[str, float] = {
                     "step": float(self.step),
                     "lr": lr,
-                    "loss": loss.item(),
+                    "loss": step_loss,
                     "grad_norm": grad_norm,
                 }
                 if self.step % self.config.eval_interval == 0:

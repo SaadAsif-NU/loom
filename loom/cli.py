@@ -64,6 +64,7 @@ def _cmd_train(args: argparse.Namespace) -> int:
     train_config = TrainConfig(
         max_steps=args.steps,
         batch_size=args.batch_size,
+        grad_accum_steps=args.grad_accum,
         lr=args.lr,
         min_lr=args.lr / 10.0,
         warmup_steps=args.warmup,
@@ -132,6 +133,7 @@ def _cmd_generate(args: argparse.Namespace) -> int:
         max_new_tokens=args.tokens,
         temperature=args.temperature,
         top_k=args.top_k,
+        top_p=args.top_p,
     )
     print(tokenizer.decode([int(i) for i in out[0]]))
     return 0
@@ -178,6 +180,7 @@ def build_parser() -> argparse.ArgumentParser:
     train.add_argument("--dropout", type=float, default=0.1)
     train.add_argument("--steps", type=int, default=2000)
     train.add_argument("--batch-size", type=int, default=32)
+    train.add_argument("--grad-accum", type=int, default=1, help="micro-batches per step")
     train.add_argument("--lr", type=float, default=1e-3)
     train.add_argument("--warmup", type=int, default=100)
     train.add_argument("--eval-interval", type=int, default=250)
@@ -196,6 +199,7 @@ def build_parser() -> argparse.ArgumentParser:
     generate.add_argument("--tokens", type=int, default=200)
     generate.add_argument("--temperature", type=float, default=0.8)
     generate.add_argument("--top-k", type=int, default=40)
+    generate.add_argument("--top-p", type=float, default=None, help="nucleus sampling mass")
     generate.add_argument("--seed", type=int, default=42)
     generate.set_defaults(func=_cmd_generate)
 

@@ -64,6 +64,19 @@ def test_model_overfits_repeating_pattern() -> None:
     assert final < 0.15, f"loss only reached {final}; training is broken"
 
 
+def test_grad_accumulation_runs_and_learns() -> None:
+    trainer = make_trainer(max_steps=60, lr=1e-2, grad_accum_steps=2)
+    initial = trainer.estimate_loss()["train"]
+    history = trainer.train()
+    assert trainer.step == 60
+    assert history[-1]["loss"] < initial  # effective batch 16 still learns
+
+
+def test_grad_accumulation_validation() -> None:
+    with pytest.raises(ValueError, match="grad_accum_steps"):
+        make_trainer(grad_accum_steps=0)
+
+
 def test_estimate_loss_reports_both_splits_and_restores_train_mode() -> None:
     trainer = make_trainer()
     losses = trainer.estimate_loss()
