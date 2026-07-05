@@ -11,4 +11,6 @@ build/
 coverage.xml
 checkpoints/
 *.npz
+# released artifacts are the exception: small, reproducible, referenced by the README
+!models/**/*.npz
 .DS_Store
