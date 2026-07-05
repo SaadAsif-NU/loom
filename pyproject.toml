@@ -42,6 +42,9 @@ dev = [
     "mypy>=1.9",
 ]
 
+[project.scripts]
+loom = "loom.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/SaadAsif-NU/loom"
 Repository = "https://github.com/SaadAsif-NU/loom"

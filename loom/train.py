@@ -140,16 +140,23 @@ class Trainer:
     # Checkpointing
     # ------------------------------------------------------------------
 
-    def save_checkpoint(self, path: str | Path) -> None:
+    def save_checkpoint(self, path: str | Path, include_optimizer: bool = True) -> None:
+        """Write a single-file checkpoint.
+
+        With ``include_optimizer=False`` only the weights and metadata are
+        saved (about a third of the size): right for shipping a trained
+        model, wrong for resuming, since Adam would restart cold.
+        """
         arrays: dict[str, np.ndarray] = {}
         named = self.model.named_parameters()
         for name, param in named:
             arrays[f"model.{name}"] = param.data
-        for name, param in named:
-            key = id(param)
-            if key in self.optimizer._m:
-                arrays[f"optim.m.{name}"] = self.optimizer._m[key]
-                arrays[f"optim.v.{name}"] = self.optimizer._v[key]
+        if include_optimizer:
+            for name, param in named:
+                key = id(param)
+                if key in self.optimizer._m:
+                    arrays[f"optim.m.{name}"] = self.optimizer._m[key]
+                    arrays[f"optim.v.{name}"] = self.optimizer._v[key]
         meta = {
             "version": 1,
             "model_config": self.model.config.to_dict(),
@@ -164,13 +171,19 @@ class Trainer:
         np.savez(path, **arrays)  # type: ignore[arg-type]  # numpy stubs mistype **kwds
 
     @classmethod
-    def resume(cls, path: str | Path, token_ids: np.ndarray) -> Trainer:
-        """Rebuild model, optimizer moments, and step counter from a checkpoint."""
+    def resume(
+        cls, path: str | Path, token_ids: np.ndarray, config: TrainConfig | None = None
+    ) -> Trainer:
+        """Rebuild model, optimizer moments, and step counter from a checkpoint.
+
+        ``config`` overrides the checkpointed train config, which is how a
+        resumed run extends ``max_steps`` beyond the original target.
+        """
         model, meta, arrays = load_model(path, return_arrays=True)
         trainer = cls(
             model=model,
             token_ids=token_ids,
-            config=TrainConfig(**meta["train_config"]),
+            config=config if config is not None else TrainConfig(**meta["train_config"]),
         )
         trainer.step = int(meta["step"])
         trainer.optimizer._step_count = int(meta["adam_step"])
