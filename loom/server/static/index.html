@@ -24,22 +24,22 @@
                 <form id="configForm">
                     <!-- Quick Settings -->
                     <div class="form-group">
-                        <label for="dataPath">Data File</label>
-                        <input type="text" id="dataPath" name="dataPath" value="data/shakespeare.txt" class="input-text">
+                        <label for="data_path">Data File</label>
+                        <input type="text" id="data_path" name="data_path" value="data/shakespeare.txt" class="input-text">
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="vocabSize">Vocab Size</label>
-                            <input type="number" id="vocabSize" name="vocabSize" value="512" min="256" max="2048" class="input-number">
+                            <label for="vocab_size">Vocab Size</label>
+                            <input type="number" id="vocab_size" name="vocab_size" value="512" min="256" max="2048" class="input-number">
                         </div>
                         <div class="form-group">
                             <label for="steps">Steps</label>
                             <input type="number" id="steps" name="steps" value="2000" min="100" max="10000" class="input-number">
                         </div>
                         <div class="form-group">
-                            <label for="batchSize">Batch Size</label>
-                            <input type="number" id="batchSize" name="batchSize" value="32" min="1" max="128" class="input-number">
+                            <label for="batch_size">Batch Size</label>
+                            <input type="number" id="batch_size" name="batch_size" value="32" min="1" max="128" class="input-number">
                         </div>
                     </div>
 
@@ -48,20 +48,20 @@
                         <summary>Advanced Settings</summary>
                         <div class="advanced-grid">
                             <div class="form-group">
-                                <label for="blockSize">Block Size</label>
-                                <input type="number" id="blockSize" name="blockSize" value="128" min="32" max="512" class="input-number">
+                                <label for="block_size">Block Size</label>
+                                <input type="number" id="block_size" name="block_size" value="128" min="32" max="512" class="input-number">
                             </div>
                             <div class="form-group">
-                                <label for="nLayer">Layers</label>
-                                <input type="number" id="nLayer" name="nLayer" value="4" min="1" max="12" class="input-number">
+                                <label for="n_layer">Layers</label>
+                                <input type="number" id="n_layer" name="n_layer" value="4" min="1" max="12" class="input-number">
                             </div>
                             <div class="form-group">
-                                <label for="nHead">Attention Heads</label>
-                                <input type="number" id="nHead" name="nHead" value="4" min="1" max="16" class="input-number">
+                                <label for="n_head">Attention Heads</label>
+                                <input type="number" id="n_head" name="n_head" value="4" min="1" max="16" class="input-number">
                             </div>
                             <div class="form-group">
-                                <label for="nEmbd">Embedding Dim</label>
-                                <input type="number" id="nEmbd" name="nEmbd" value="128" min="64" max="512" class="input-number">
+                                <label for="n_embd">Embedding Dim</label>
+                                <input type="number" id="n_embd" name="n_embd" value="128" min="64" max="512" class="input-number">
                             </div>
                             <div class="form-group">
                                 <label for="dropout">Dropout</label>
@@ -72,8 +72,8 @@
                                 <input type="number" id="lr" name="lr" value="0.001" min="0.00001" max="0.1" step="0.00001" class="input-number">
                             </div>
                             <div class="form-group">
-                                <label for="warmupSteps">Warmup Steps</label>
-                                <input type="number" id="warmupSteps" name="warmupSteps" value="100" min="0" max="1000" class="input-number">
+                                <label for="warmup_steps">Warmup Steps</label>
+                                <input type="number" id="warmup_steps" name="warmup_steps" value="100" min="0" max="1000" class="input-number">
                             </div>
                             <div class="form-group">
                                 <label for="seed">Seed</label>
@@ -128,16 +128,16 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="genTokens">Tokens</label>
-                            <input type="number" id="genTokens" value="200" min="50" max="1000" class="input-number">
+                            <label for="gen_tokens">Tokens</label>
+                            <input type="number" id="gen_tokens" value="200" min="50" max="1000" class="input-number">
                         </div>
                         <div class="form-group">
-                            <label for="temperature">Temperature</label>
-                            <input type="number" id="temperature" value="0.8" min="0.1" max="2.0" step="0.1" class="input-number">
+                            <label for="gen_temperature">Temperature</label>
+                            <input type="number" id="gen_temperature" value="0.8" min="0.1" max="2.0" step="0.1" class="input-number">
                         </div>
                         <div class="form-group">
-                            <label for="topK">Top K</label>
-                            <input type="number" id="topK" value="40" min="0" max="100" class="input-number">
+                            <label for="gen_top_k">Top K</label>
+                            <input type="number" id="gen_top_k" value="40" min="0" max="100" class="input-number">
                         </div>
                     </div>
                     <button type="button" id="generateBtn" class="btn btn-primary" disabled>Generate</button>

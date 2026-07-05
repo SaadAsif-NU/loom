@@ -35,15 +35,11 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(r => r.json())
         .then(defaults => {
             Object.entries(defaults).forEach(([key, value]) => {
-                const el = document.getElementById(camelToHyphen(key));
+                const el = document.getElementById(key);
                 if (el) el.value = value;
             });
         });
 });
-
-function camelToHyphen(str) {
-    return str.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
-}
 
 function getFormConfig() {
     const formData = new FormData(configForm);
@@ -66,8 +62,21 @@ async function handleStartTraining() {
         });
 
         if (!res.ok) {
-            const err = await res.json();
-            showMessage(`Error: ${err.detail}`, 'error');
+            let errMsg = 'Unknown error';
+            try {
+                const err = await res.json();
+                if (Array.isArray(err.detail)) {
+                    // Pydantic validation errors
+                    errMsg = err.detail.map(e => `${e.loc.join('.')}: ${e.msg}`).join('; ');
+                } else if (typeof err.detail === 'string') {
+                    errMsg = err.detail;
+                } else {
+                    errMsg = JSON.stringify(err);
+                }
+            } catch (e) {
+                errMsg = `HTTP ${res.status}: ${res.statusText}`;
+            }
+            showMessage(`Error: ${errMsg}`, 'error');
             return;
         }
 
@@ -348,9 +357,18 @@ async function handleStopTraining() {
         const res = await fetch(`${API_BASE}/train/stop`, { method: 'POST' });
         if (res.ok) {
             showMessage('Stopping training...', 'info');
+        } else {
+            let errMsg = 'Unknown error';
+            try {
+                const err = await res.json();
+                errMsg = err.detail || JSON.stringify(err);
+            } catch (e) {
+                errMsg = `HTTP ${res.status}: ${res.statusText}`;
+            }
+            showMessage(`Error: ${errMsg}`, 'error');
         }
     } catch (e) {
-        showMessage(`Error: ${e.message}`, 'error');
+        showMessage(`Error: ${e instanceof Error ? e.message : String(e)}`, 'error');
     }
 }
 
@@ -360,9 +378,9 @@ async function handleGenerate() {
     }
 
     const prompt = document.getElementById('prompt').value;
-    const tokens = parseInt(document.getElementById('genTokens').value);
-    const temperature = parseFloat(document.getElementById('temperature').value);
-    const topK = parseInt(document.getElementById('topK').value);
+    const tokens = parseInt(document.getElementById('gen_tokens').value);
+    const temperature = parseFloat(document.getElementById('gen_temperature').value);
+    const topK = parseInt(document.getElementById('gen_top_k').value);
 
     generateBtn.disabled = true;
 
@@ -374,8 +392,14 @@ async function handleGenerate() {
         });
 
         if (!res.ok) {
-            const err = await res.json();
-            showMessage(`Error: ${err.detail}`, 'error');
+            let errMsg = 'Unknown error';
+            try {
+                const err = await res.json();
+                errMsg = err.detail || JSON.stringify(err);
+            } catch (e) {
+                errMsg = `HTTP ${res.status}: ${res.statusText}`;
+            }
+            showMessage(`Error: ${errMsg}`, 'error');
             generateBtn.disabled = false;
             return;
         }
