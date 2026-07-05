@@ -91,6 +91,12 @@ async function handleStartTraining() {
         statusIndicator.textContent = 'training';
         statusIndicator.className = 'status-indicator running';
 
+        // Update metrics immediately with correct total_steps
+        metricStep.textContent = `0 / ${totalSteps}`;
+        metricLoss.textContent = '–';
+        metricValLoss.textContent = '–';
+        metricETA.textContent = '–';
+
         // Connect WebSocket
         connectWebSocket(runId);
 
@@ -148,7 +154,19 @@ function handleTrainingEvent(evt) {
         statusIndicator.className = 'status-indicator completed';
         generatePanel.style.display = 'block';
         generateBtn.disabled = false;
-        showMessage('Training completed!', 'success');
+        showMessage('Training completed! Checkpoint saved.', 'success');
+        if (ws) ws.close();
+    } else if (evt.event_type === 'stopped') {
+        isTraining = false;
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        configForm.style.pointerEvents = 'auto';
+        configForm.style.opacity = '1';
+        statusIndicator.textContent = 'stopped';
+        statusIndicator.className = 'status-indicator completed';
+        generatePanel.style.display = 'block';
+        generateBtn.disabled = false;
+        showMessage('Training stopped. Checkpoint saved (you can resume later).', 'success');
         if (ws) ws.close();
     } else if (evt.event_type === 'failed') {
         isTraining = false;

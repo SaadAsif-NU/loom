@@ -47,6 +47,7 @@ class TrainingManager:
         self.tokenizer: BPETokenizer | None = None
         self.checkpoint_dir: Path | None = None
         self.start_time: float = 0.0
+        self.loop: asyncio.AbstractEventLoop | None = None
 
     def is_active(self) -> bool:
         """Check if a training run is active."""
@@ -69,6 +70,7 @@ class TrainingManager:
         self.val_loss = 0.0
         self.start_time = time.time()
         self.cancel_event.clear()
+        self.loop = asyncio.get_running_loop()
 
         self.checkpoint_dir = Path("checkpoints") / self.run_id
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
@@ -135,7 +137,7 @@ class TrainingManager:
 
         def on_step(record: dict[str, Any]) -> None:
             if self.cancel_event.is_set():
-                raise KeyboardInterrupt("Training cancelled")
+                raise KeyboardInterrupt("Training stopped by user")
 
             self.step = int(record["step"])
             self.loss = float(record["loss"])
@@ -144,6 +146,7 @@ class TrainingManager:
             ms_per_step = elapsed / self.step * 1000 if self.step > 0 else 0
             self.eta_seconds = (self.total_steps - self.step) * ms_per_step / 1000
 
+            assert self.loop is not None
             asyncio.run_coroutine_threadsafe(
                 self.emit(
                     TrainEvent(
@@ -155,27 +158,36 @@ class TrainingManager:
                         eta_seconds=self.eta_seconds,
                     )
                 ),
-                asyncio.get_event_loop(),
+                self.loop,
             )
 
-        trainer.train(on_step=on_step)
+        try:
+            trainer.train(on_step=on_step)
+            status_msg = "Training completed successfully"
+            final_status: Literal[
+                "idle", "running", "completed", "failed", "stopped"
+            ] = "completed"
+        except KeyboardInterrupt as e:
+            status_msg = str(e)
+            final_status = "stopped"
 
         trainer.save_checkpoint(checkpoint_path)
         trainer.save_checkpoint(self.checkpoint_dir / "model.npz", include_optimizer=False)
         (self.checkpoint_dir / "history.json").write_text(json.dumps(trainer.history, indent=2))
 
-        self.status = "completed"
+        self.status = final_status
+        assert self.loop is not None
         asyncio.run_coroutine_threadsafe(
             self.emit(
                 TrainEvent(
-                    event_type="completed",
+                    event_type=final_status,
                     step=self.step,
                     loss=self.loss,
                     val_loss=self.val_loss,
-                    message="Training completed successfully",
+                    message=status_msg,
                 )
             ),
-            asyncio.get_event_loop(),
+            self.loop,
         )
 
     def stop_training(self) -> None:
@@ -196,10 +208,6 @@ app.add_middleware(
 )
 
 manager = TrainingManager()
-
-static_dir = Path(__file__).parent / "static"
-if static_dir.exists():
-    app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 
 
 @app.get("/api/health")
@@ -287,6 +295,11 @@ async def get_defaults() -> dict[str, Any]:
     """Get default training configuration."""
     defaults = TrainConfig()
     return defaults.model_dump()
+
+
+static_dir = Path(__file__).parent / "static"
+if static_dir.exists():
+    app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 
 
 def serve() -> None:
