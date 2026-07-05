@@ -98,24 +98,28 @@ tok.save("tokenizer.json")
 - [x] **Training loop**: AdamW (decoupled decay, GPT-2 style param groups), grad clipping, warmup + cosine schedule, resumable checkpoints with optimizer state
 - [x] **Sampling**: temperature, top-k, and nucleus (top-p) sampling with KV-cached decoding, equivalence-tested against the uncached path
 - [x] **CLI + docs**: `loom train` / `loom generate` / `loom eval`, architecture writeup, runnable examples
+- [x] **Training dashboard**: live loss curves, real-time metrics, model generation panel, FastAPI + WebSocket
 - [ ] **Trained model**: full Shakespeare run with loss curves, perplexity eval, committed checkpoint
 
 ## CLI
 
-The whole workflow is three commands (also available as `python -m loom`):
+The whole workflow is available as `loom` commands (also via `python -m loom`):
 
 ```bash
-# raw text in -> tokenizer + model + loss history out
+# Launch the interactive training dashboard (http://127.0.0.1:8000)
+loom serve
+
+# Or train from the command line
 loom train --data data/shakespeare.txt --out checkpoints/shakespeare \
     --vocab-size 512 --block-size 128 --n-layer 4 --n-head 4 --n-embd 128 \
     --steps 2000 --batch-size 32 --lr 1e-3
 
-# sample from the trained model (temperature / top-k / top-p)
+# Sample from the trained model (temperature / top-k / top-p)
 loom generate --checkpoint checkpoints/shakespeare/model.npz \
     --tokenizer checkpoints/shakespeare/tokenizer.json \
     --prompt "ROMEO:" --tokens 200 --temperature 0.8 --top-k 40
 
-# held-out perplexity
+# Held-out perplexity
 loom eval --checkpoint checkpoints/shakespeare/model.npz \
     --tokenizer checkpoints/shakespeare/tokenizer.json \
     --data data/shakespeare.txt
@@ -123,6 +127,19 @@ loom eval --checkpoint checkpoints/shakespeare/model.npz \
 
 Interrupted runs restart exactly where they left off (`--resume` reloads
 the weights, the Adam moments, and the step counter from `checkpoint.npz`).
+
+## Training Dashboard
+
+Run `loom serve` to launch an interactive training dashboard at `http://127.0.0.1:8000`. The dashboard provides:
+
+- **Real-time loss curves** with live updates as training progresses
+- **Live metrics**: step count, loss, validation loss, learning rate, ETA
+- **Model generation panel**: sample text from the trained model with temperature / top-k control
+- **Flexible configuration**: adjust hyperparameters, model architecture, batch size, learning rate all from the UI
+- **Resume training**: pick up from a checkpoint and continue training
+- **Simple defaults**: click Start Training and the dashboard runs on public-domain Shakespeare text
+
+The dashboard uses FastAPI and WebSocket for zero-latency event streaming. Training runs in a background thread, freeing the UI to remain responsive. All configuration is validated server-side.
 
 ## Design notes
 
@@ -134,20 +151,27 @@ the weights, the Adam moments, and the step counter from `checkpoint.npz`).
 
 ```
 loom/
-  tensor.py       # autodiff engine: Tensor, primitive ops, backward()
-  functional.py   # softmax, gelu, cross_entropy composed from primitives
-  gradcheck.py    # central-difference numerical gradient checking
-  tokenizer.py    # byte-level BPE: train / encode / decode / save / load
-  nn.py           # Module base + Linear, Embedding, LayerNorm, Dropout
-  model.py        # GPTConfig, causal self-attention, transformer blocks, GPT
-  optim.py        # AdamW, gradient clipping, warmup + cosine LR
-  train.py        # Trainer: batching, grad accumulation, resumable checkpoints
-  evaluate.py     # held-out perplexity
-  cli.py          # loom train / generate / eval
-  rng.py          # one seeded generator for init, dropout, batching, sampling
-tests/            # gradient checks, causality proof, cache equivalence, overfit gate
-scripts/          # dependency-free SVG plotters + generation benchmark
-data/             # public-domain training corpus
+  tensor.py           # autodiff engine: Tensor, primitive ops, backward()
+  functional.py       # softmax, gelu, cross_entropy composed from primitives
+  gradcheck.py        # central-difference numerical gradient checking
+  tokenizer.py        # byte-level BPE: train / encode / decode / save / load
+  nn.py               # Module base + Linear, Embedding, LayerNorm, Dropout
+  model.py            # GPTConfig, causal self-attention, transformer blocks, GPT
+  optim.py            # AdamW, gradient clipping, warmup + cosine LR
+  train.py            # Trainer: batching, grad accumulation, resumable checkpoints
+  evaluate.py         # held-out perplexity
+  cli.py              # loom train / generate / eval / serve
+  rng.py              # one seeded generator for init, dropout, batching, sampling
+  server/
+    app.py            # FastAPI app, WebSocket training event streaming
+    schemas.py        # Pydantic request/response models
+    static/
+      index.html      # dashboard frontend
+      styles.css      # responsive dark/light theme
+      app.js          # live loss curve, WebSocket listener
+tests/                # gradient checks, causality proof, cache equivalence, overfit gate
+scripts/              # dependency-free SVG plotters + generation benchmark
+data/                 # public-domain training corpus
 ```
 
 Train a tiny GPT end to end (this is real code, not pseudocode):
