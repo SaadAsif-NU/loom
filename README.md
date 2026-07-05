@@ -1,14 +1,33 @@
 # loom
 
-**A small language model woven from scratch.** Reverse-mode autodiff, a byte-level BPE tokenizer, and a GPT-style transformer, all in pure Python + NumPy. No PyTorch. No TensorFlow. Every gradient in this repo is derived, implemented, and verified by hand.
+**A small language model woven from scratch.** Reverse-mode autodiff, a byte-level BPE tokenizer, and a GPT-style transformer, all in pure Python + NumPy. No PyTorch. No TensorFlow. Every gradient is derived by hand and verified against numerical differentiation.
 
 [![CI](https://github.com/SaadAsif-NU/loom/actions/workflows/ci.yml/badge.svg)](https://github.com/SaadAsif-NU/loom/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)](https://github.com/SaadAsif-NU/loom)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-## Why this exists
+## The idea
 
-Modern ML work happens on top of frameworks that hide the interesting parts: how gradients flow, why attention works, what a tokenizer actually learns. loom removes the frameworks and rebuilds the stack from primitives:
+Type `loom train --data data/shakespeare.txt --out run/` and a language
+model gets built in front of you: a tokenizer learns its vocabulary from
+raw bytes, a transformer trains by gradient descent, and `loom generate`
+speaks in the style of the corpus. The point is that **every layer of the
+stack that makes this possible lives in this repo**, small enough to read
+in an afternoon, tested strictly enough to trust:
+
+| The job | What you'd normally import | What loom implements instead |
+|---|---|---|
+| Tokenization | tiktoken / sentencepiece | `tokenizer.py`: trainable byte-level BPE |
+| Autograd | torch.autograd | `tensor.py`: reverse-mode autodiff on NumPy |
+| Layers | torch.nn | `nn.py`: Module, Linear, Embedding, LayerNorm, Dropout |
+| The model | transformers | `model.py`: GPT-style decoder, causal self-attention |
+| Optimization | torch.optim | `optim.py`: AdamW, clipping, warmup + cosine |
+| Training | a Trainer framework | `train.py`: batching, eval, resumable checkpoints |
+| Fast inference | a serving engine's KV cache | `model.py`: cached O(T)-per-token decoding |
+
+Frameworks hide the interesting parts: how gradients flow, why attention
+works, what a tokenizer actually learns, what a KV cache actually caches.
+loom removes the frameworks and rebuilds the stack from primitives:
 
 - **`loom.tensor`**: a define-by-run reverse-mode autodiff engine. Tensors track their computation graph; `backward()` topologically sorts it and propagates gradients, with full NumPy broadcasting handled correctly on the way back.
 - **`loom.functional`**: softmax, GELU, layer norm, and cross-entropy built by *composing* the primitive ops, so their gradients come from the engine rather than hand-derived special cases. Numerical stability (log-sum-exp shifts) is handled with detached constants.
@@ -16,7 +35,26 @@ Modern ML work happens on top of frameworks that hide the interesting parts: how
 - **`loom.nn` + `loom.model`**: linear/embedding/layer-norm modules and a GPT-style decoder-only transformer with multi-head causal self-attention, **KV-cached decoding** (O(T) per generated token, proven equivalent to the uncached path by test), and temperature / top-k / nucleus sampling.
 - **`loom.train`**: AdamW, gradient clipping, warmup + cosine LR schedule, gradient accumulation, batching, resumable checkpointing.
 
-Everything is verified: each primitive op and every composed function is checked against central-difference numerical gradients in the test suite.
+## How it is verified
+
+"From scratch" is only interesting if it is *correct*, so the test suite
+(155 tests, CI on Python 3.10 through 3.13, strict mypy, 85% coverage
+gate) is built as a chain of proofs:
+
+1. **Every primitive op** is checked against central-difference numerical
+   gradients in float64, using a random projection so every output
+   element is exercised.
+2. **Every composed function** passes the same check, and cross-entropy's
+   gradient is additionally shown to equal the textbook
+   `softmax - one_hot` without ever hand-coding it.
+3. **The model is provably causal**: perturb the token at position t and
+   logits before t are bit-for-bit unchanged.
+4. **KV-cached generation is provably faithful**: cached and uncached
+   decoding produce identical outputs, including across the sliding-window
+   boundary.
+5. **The whole stack must learn**: an end-to-end gate trains on a
+   predictable sequence and fails unless the loss falls from ~3.5 to
+   under 0.15. A wrong gradient anywhere in the engine breaks this test.
 
 ## Quickstart
 
