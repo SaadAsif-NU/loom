@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>loom – Training Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <h1>loom</h1>
+                <p class="tagline">Train a language model from scratch</p>
+            </div>
+            <div class="status-indicator" id="statusIndicator">idle</div>
+        </header>
+
+        <main>
+            <!-- Config Panel -->
+            <section class="panel config-panel">
+                <h2>Configuration</h2>
+                <form id="configForm">
+                    <!-- Quick Settings -->
+                    <div class="form-group">
+                        <label for="dataPath">Data File</label>
+                        <input type="text" id="dataPath" name="dataPath" value="data/shakespeare.txt" class="input-text">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="vocabSize">Vocab Size</label>
+                            <input type="number" id="vocabSize" name="vocabSize" value="512" min="256" max="2048" class="input-number">
+                        </div>
+                        <div class="form-group">
+                            <label for="steps">Steps</label>
+                            <input type="number" id="steps" name="steps" value="2000" min="100" max="10000" class="input-number">
+                        </div>
+                        <div class="form-group">
+                            <label for="batchSize">Batch Size</label>
+                            <input type="number" id="batchSize" name="batchSize" value="32" min="1" max="128" class="input-number">
+                        </div>
+                    </div>
+
+                    <!-- Advanced Settings (collapsible) -->
+                    <details class="advanced-settings">
+                        <summary>Advanced Settings</summary>
+                        <div class="advanced-grid">
+                            <div class="form-group">
+                                <label for="blockSize">Block Size</label>
+                                <input type="number" id="blockSize" name="blockSize" value="128" min="32" max="512" class="input-number">
+                            </div>
+                            <div class="form-group">
+                                <label for="nLayer">Layers</label>
+                                <input type="number" id="nLayer" name="nLayer" value="4" min="1" max="12" class="input-number">
+                            </div>
+                            <div class="form-group">
+                                <label for="nHead">Attention Heads</label>
+                                <input type="number" id="nHead" name="nHead" value="4" min="1" max="16" class="input-number">
+                            </div>
+                            <div class="form-group">
+                                <label for="nEmbd">Embedding Dim</label>
+                                <input type="number" id="nEmbd" name="nEmbd" value="128" min="64" max="512" class="input-number">
+                            </div>
+                            <div class="form-group">
+                                <label for="dropout">Dropout</label>
+                                <input type="number" id="dropout" name="dropout" value="0.1" min="0" max="0.5" step="0.05" class="input-number">
+                            </div>
+                            <div class="form-group">
+                                <label for="lr">Learning Rate</label>
+                                <input type="number" id="lr" name="lr" value="0.001" min="0.00001" max="0.1" step="0.00001" class="input-number">
+                            </div>
+                            <div class="form-group">
+                                <label for="warmupSteps">Warmup Steps</label>
+                                <input type="number" id="warmupSteps" name="warmupSteps" value="100" min="0" max="1000" class="input-number">
+                            </div>
+                            <div class="form-group">
+                                <label for="seed">Seed</label>
+                                <input type="number" id="seed" name="seed" value="42" min="0" class="input-number">
+                            </div>
+                        </div>
+                    </details>
+
+                    <div class="form-actions">
+                        <button type="button" id="startBtn" class="btn btn-primary">Start Training</button>
+                        <button type="button" id="stopBtn" class="btn btn-secondary" disabled>Stop</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Training Monitor -->
+            <section class="panel monitor-panel" id="monitorPanel" style="display:none;">
+                <!-- Metrics -->
+                <div class="metrics-grid">
+                    <div class="metric">
+                        <div class="metric-label">Step</div>
+                        <div class="metric-value" id="metricStep">0 / 2000</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Loss</div>
+                        <div class="metric-value" id="metricLoss">–</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Val Loss</div>
+                        <div class="metric-value" id="metricValLoss">–</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">ETA</div>
+                        <div class="metric-value" id="metricETA">–</div>
+                    </div>
+                </div>
+
+                <!-- Loss Curve -->
+                <div class="chart-container">
+                    <h3>Training Progress</h3>
+                    <svg id="lossCurve" viewBox="0 0 800 300" preserveAspectRatio="xMidYMid meet" class="loss-curve"></svg>
+                </div>
+            </section>
+
+            <!-- Generation Panel -->
+            <section class="panel generate-panel" id="generatePanel" style="display:none;">
+                <h2>Generate Samples</h2>
+                <div class="generate-form">
+                    <div class="form-group">
+                        <label for="prompt">Prompt</label>
+                        <textarea id="prompt" class="input-textarea" placeholder="Enter a prompt or leave empty..." rows="2"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="genTokens">Tokens</label>
+                            <input type="number" id="genTokens" value="200" min="50" max="1000" class="input-number">
+                        </div>
+                        <div class="form-group">
+                            <label for="temperature">Temperature</label>
+                            <input type="number" id="temperature" value="0.8" min="0.1" max="2.0" step="0.1" class="input-number">
+                        </div>
+                        <div class="form-group">
+                            <label for="topK">Top K</label>
+                            <input type="number" id="topK" value="40" min="0" max="100" class="input-number">
+                        </div>
+                    </div>
+                    <button type="button" id="generateBtn" class="btn btn-primary" disabled>Generate</button>
+                </div>
+
+                <div id="generatedOutput" class="generated-output" style="display:none;">
+                    <h4>Generated Text</h4>
+                    <pre id="generatedText"></pre>
+                </div>
+            </section>
+
+            <!-- Status Messages -->
+            <section class="panel message-panel" id="messagePanel" style="display:none;">
+                <div id="messageContent" class="message-content"></div>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

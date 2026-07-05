@@ -20,6 +20,7 @@ import json
 import sys
 import time
 from pathlib import Path
+from typing import Callable
 
 import numpy as np
 
@@ -29,6 +30,13 @@ from loom.model import GPT, GPTConfig
 from loom.rng import set_seed
 from loom.tokenizer import BPETokenizer
 from loom.train import TrainConfig, Trainer, load_model
+
+try:
+    from loom.server.app import serve as serve_dashboard
+
+    _serve: Callable[[], None] | None = serve_dashboard
+except ImportError:
+    _serve = None
 
 
 def _load_artifacts(checkpoint: Path, tokenizer: Path) -> tuple[GPT, BPETokenizer]:
@@ -158,6 +166,19 @@ def _cmd_eval(args: argparse.Namespace) -> int:
 
 
 # ----------------------------------------------------------------------
+# serve
+# ----------------------------------------------------------------------
+
+
+def _cmd_serve(args: argparse.Namespace) -> int:
+    if _serve is None:
+        print("error: fastapi/uvicorn not installed. Install with: pip install -e .")
+        return 1
+    _serve()
+    return 0
+
+
+# ----------------------------------------------------------------------
 # parser
 # ----------------------------------------------------------------------
 
@@ -217,6 +238,9 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--val-fraction", type=float, default=0.1)
     evaluate.add_argument("--seed", type=int, default=42)
     evaluate.set_defaults(func=_cmd_eval)
+
+    serve = sub.add_parser("serve", help="launch the training dashboard server")
+    serve.set_defaults(func=_cmd_serve)
 
     return parser
 
