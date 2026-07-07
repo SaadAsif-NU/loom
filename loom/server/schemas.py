@@ -49,7 +49,7 @@ class TrainStatus(BaseModel):
 class TrainEvent(BaseModel):
     """A training event streamed via WebSocket."""
 
-    event_type: Literal["step", "completed", "failed", "info"]
+    event_type: Literal["step", "completed", "stopped", "failed", "info"]
     step: int | None = None
     loss: float | None = None
     val_loss: float | None = None

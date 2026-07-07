@@ -164,9 +164,7 @@ class TrainingManager:
         try:
             trainer.train(on_step=on_step)
             status_msg = "Training completed successfully"
-            final_status: Literal[
-                "idle", "running", "completed", "failed", "stopped"
-            ] = "completed"
+            final_status: Literal["completed", "stopped"] = "completed"
         except KeyboardInterrupt as e:
             status_msg = str(e)
             final_status = "stopped"
